@@ -1,4 +1,6 @@
-﻿using RestSharp;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using RestSharp;
 using RestSharp.Authenticators;
 using System;
 using System.Collections.Generic;
@@ -7,27 +9,60 @@ using System.Threading.Tasks;
 
 namespace twilioPractice
 {
-    public class Program
+    public class Message
     {
-        public static void Main(string[] args)
+
+        public string To { get; set; }
+        public string From { get; set; }
+        public string Body { get; set; }
+        public string Status { get; set; }
+
+
+
+        static void Main(string[] args)
+
         {
-            //1 Make a connection with the server where the API is located.
             var client = new RestClient("https://api.twilio.com/2010-04-01");
-            //2 Make a connection with the server where the API is located.
-            var request = new RestRequest("Accounts/PNfabfe8b6a7d307d675a3f3f48fea8390/Messages", Method.POST);
-            //3 Add parameters to our request.Here we've set the text message's sender, recipient, and actual message.
-            request.AddParameter("To", "+3473022537");
-            request.AddParameter("From", "+3476798347");
-            request.AddParameter("Body", "Hello world!");
-            //4 Give the client the appropriate credentials.
-            client.Authenticator = new HttpBasicAuthenticator("PNfabfe8b6a7d307d675a3f3f48fea8390", "81153f88031ea5c1de2d867fd07a6bdc");
-            //5 Give the client the appropriate credentials.
-            client.ExecuteAsync(request, response =>
+            //1
+            var request = new RestRequest("Accounts/ACd6e026fd11ce047ed8523c5390dfac81/Messages.json", Method.GET);
+            client.Authenticator = new HttpBasicAuthenticator("ACd6e026fd11ce047ed8523c5390dfac81", "81153f88031ea5c1de2d867fd07a6bdc");
+            //2
+            var response = new RestResponse();
+
+            //3a-The request is made with an asynchronous method, and Task.Run with Wait() allows us to await asynchronous calls in a "synchronous" way. 
+            Task.Run(async () =>
             {
-                Console.WriteLine(response);
-            });
+                response = await GetResponseContentAsync(client, request) as RestResponse;
+            }).Wait();
+
+            JObject jsonResponse = JsonConvert.DeserializeObject<JObject>(response.Content);
+            var messageList = JsonConvert.DeserializeObject<List<Message>>(jsonResponse["messages"].ToString());
+            foreach (var message in messageList)
+            {
+                Console.WriteLine("To: {0}", message.To);
+                Console.WriteLine("From: {0}", message.From);
+                Console.WriteLine("Body: {0}", message.Body);
+                Console.WriteLine("Status: {0}", message.Status);
+            }
             Console.ReadLine();
         }
+
+
+    
+
+        //3b- We set response equal to the response from our request, which we make in the method shown in 3b, and then cast as the type RestResponse.
+        public static Task<IRestResponse> GetResponseContentAsync(RestClient theClient, RestRequest theRequest)
+        {
+            var tcs = new TaskCompletionSource<IRestResponse>();
+            theClient.ExecuteAsync(theRequest, response => {
+                tcs.SetResult(response);
+            });
+            return tcs.Task;
+        }
+
+        // deserializing- We can actually pull this array out as a JSON object 
+
+
     }
 }
 
